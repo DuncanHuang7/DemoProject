@@ -14,6 +14,7 @@ namespace Practive1.Controllers
     public class ProductController : Controller
     {
         private ProductContext db = new ProductContext();
+
         // GET: Product
         public ActionResult Index()
         {
@@ -29,6 +30,20 @@ namespace Practive1.Controllers
         [ValidateAntiForgeryToken]
         public ActionResult Create([Bind(Include = "ProductName, ProductDesc")]Product product)
         {
+            //Factory mode example
+            String loggerType = "database";
+            ILogger logger;
+            switch (loggerType)
+            {
+                case "database":
+                    logger = new DatabaseLogger();
+                    break;
+
+                default:
+                    logger = new TextLogger();
+                    break;
+            }
+
             try
             {
                 if (ModelState.IsValid)
@@ -39,15 +54,15 @@ namespace Practive1.Controllers
                     return RedirectToAction("Index");
                 }
             }
-            catch (DataException /* dex */)
+            catch (DataException ex/* dex */)
             {
                 //Log the error (uncomment dex variable name and add a line here to write a log.
+                logger.Log(ex.ToString());
                 ModelState.AddModelError("", "Unable to save changes. Try again, and if the problem persists see your system administrator.");
             }
             return View(product);
         }
 
-        // GET: Student/Edit/5
         public ActionResult Edit(int? id)
         {
             if (id == null)
@@ -62,9 +77,6 @@ namespace Practive1.Controllers
             return View(product);
         }
 
-        // POST: Student/Edit/5
-        // To protect from overposting attacks, please enable the specific properties you want to bind to, for 
-        // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost, ActionName("Edit")]
         [ValidateAntiForgeryToken]
         public ActionResult EditPost(int? id)
@@ -93,7 +105,6 @@ namespace Practive1.Controllers
             return View(productToUpdate);
         }
 
-        // GET: Student/Delete/5
         public ActionResult Delete(int? id, bool? saveChangesError = false)
         {
             if (id == null)
@@ -112,18 +123,17 @@ namespace Practive1.Controllers
             return View(product);
         }
 
-        // POST: Student/Delete/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public ActionResult Delete(int id)
         {
             try
             {
-                Product student = db.Products.Find(id);
-                db.Products.Remove(student);
+                Product product = db.Products.Find(id);
+                db.Products.Remove(product);
                 db.SaveChanges();
             }
-            catch (RetryLimitExceededException/* dex */)
+            catch (RetryLimitExceededException)
             {
                 //Log the error (uncomment dex variable name and add a line here to write a log.
                 return RedirectToAction("Delete", new { id = id, saveChangesError = true });
@@ -137,6 +147,42 @@ namespace Practive1.Controllers
                 db.Dispose();
             }
             base.Dispose(disposing);
+        }
+
+        //Factory example
+        interface ILogger
+        {
+            void Log(String message);
+        }
+
+        class LogManager
+        {
+            private ILogger _logger;
+            public LogManager(ILogger logger)
+            {
+                _logger = logger;
+            }
+
+            public void Log(String message)
+            {
+                _logger.Log(message);
+            }
+        }
+
+        class TextLogger : ILogger
+        {
+            public void Log(String message)
+            {
+                Console.WriteLine("Logged to text file: " + message);
+            }
+        }
+
+        class DatabaseLogger : ILogger
+        {
+            public void Log(String message)
+            {
+                Console.WriteLine("Logged to Sql database: " + message);
+            }
         }
     }
 }
